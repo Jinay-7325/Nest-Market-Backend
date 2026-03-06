@@ -1,57 +1,86 @@
 import {
   Controller,
   Get,
-  Post,
-  Body,
   Patch,
-  Param,
   Delete,
+  Body,
+  Param,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 
-@Controller('users')
+@UseGuards(JwtAuthGuard)
+@Controller('v1/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  // ─── Get all users (Admin + Super Admin) ──────────────────
+  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@CurrentUser('tenant_id') tenant_id: number) {
+    return this.usersService.findAll(tenant_id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  // ─── Get own profile ──────────────────────────────────────
   @Get('profile')
-  findOne(@CurrentUser('sub') user_id: number) {
-    return this.usersService.findById(+user_id);
+  getProfile(@CurrentUser('sub') user_id: number) {
+    return this.usersService.findById(user_id);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  // ─── Get user by ID (Admin + Super Admin) ─────────────────
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get(':id')
+  findOne(@Param('id') id: number) {
+    return this.usersService.findById(+id);
+  }
+
+  // ─── Update own profile ───────────────────────────────────
+  @Patch('profile')
+  updateProfile(
+    @CurrentUser('sub') user_id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.updateProfile(user_id, updateUserDto);
+  }
+
+  // ─── Update user by ID (Admin + Super Admin) ──────────────
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch(':id')
+  update(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.updateProfile(+id, updateUserDto);
+  }
+
+  // ─── Update user role (Admin + Super Admin) ───────────────
+  @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id/role')
   updateRole(
-    @CurrentUser('role') currentUserRole: Role,
     @Param('id') id: number,
+    @CurrentUser('role') currentUserRole: Role,
     @Body() updateUserRoleDto: UpdateUserRoleDto,
   ) {
     return this.usersService.updateRole(
-      id,
+      +id,
       updateUserRoleDto.role,
       currentUserRole,
     );
+  }
+
+  // ─── Deactivate user (Admin + Super Admin) ────────────────
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete(':id')
+  deactivate(@Param('id') id: number) {
+    return this.usersService.deactivate(+id);
   }
 }

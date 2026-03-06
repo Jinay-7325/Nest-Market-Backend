@@ -2,7 +2,7 @@ import { Category } from 'src/categories/entities/category.entity';
 import { InventoryLog } from 'src/inventory/entities/inventory-log.entity';
 import { Order } from 'src/orders/entities/order.entity';
 import { Product } from 'src/products/entities/product.entity';
-import { DailySalesSummary } from 'src/sales/entities/daily-sales-summary.entity';
+import { DailySalesSummary } from 'src/orders/entities/daily-sales-summary.entity';
 import { User } from 'src/users/entities/user.entity';
 import {
   Entity,

@@ -1,45 +1,27 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
-import { CreateInventoryDto } from './dto/create-inventory.dto';
-import { UpdateInventoryDto } from './dto/update-inventory.dto';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enums/role.enum';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
-@Controller('inventory')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('v1/inventory')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
-  @Post()
-  create(@Body() createInventoryDto: CreateInventoryDto) {
-    return this.inventoryService.create(createInventoryDto);
-  }
-
+  // Admin/Super Admin — all logs for tenant
+  @Roles(Role.ADMIN)
   @Get()
-  findAll() {
-    return this.inventoryService.findAll();
+  findAll(@CurrentUser('tenant_id') tenant_id: number) {
+    return this.inventoryService.findAll(tenant_id);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.inventoryService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateInventoryDto: UpdateInventoryDto,
-  ) {
-    return this.inventoryService.update(+id, updateInventoryDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.inventoryService.remove(+id);
+  // Vendor/Admin — logs for specific product
+  @Roles(Role.VENDOR, Role.ADMIN)
+  @Get('product/:id')
+  findByProduct(@Param('id') id: number) {
+    return this.inventoryService.findByProduct(+id);
   }
 }

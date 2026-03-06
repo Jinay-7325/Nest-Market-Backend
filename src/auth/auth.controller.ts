@@ -1,41 +1,109 @@
 import {
   Controller,
-  Get,
   Post,
+  Get,
   Body,
-  Patch,
-  Param,
-  Delete,
-  Header,
   UseGuards,
+  Req,
+  Patch,
 } from '@nestjs/common';
+import type { Request } from 'express'; // ✅ use 'import type' for isolatedModules
 import { AuthService } from './auth.service';
-import { CreateUserAuth } from './dto/create-user-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
-import { loginUserAuth } from './dto/login-user.dto';
+import { SessionService } from './session.service';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { loginUserAuth } from './dto/login-user.dto';
+import { CreateUserAuth } from './dto/create-user-auth.dto';
+import { Role } from 'src/common/enums/role.enum';
 import { tenantFromHeader } from 'src/common/decorators/tenant-from-header.decorator';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { RefreshTokenGuard } from 'src/common/guards/refresh-token.guard';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UsersService } from 'src/users/users.service';
+import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Auth')
+@ApiSecurity('x-tenant-id')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sessionService: SessionService,
+    private readonly usersService: UsersService,
+  ) {}
 
+  // ─── Register ─────────────────────────────────────────────
+  @ApiOperation({ summary: 'Register new user' })
   @Post('register')
-  create(
-    @Body() createAuthDto: CreateUserAuth,
-    @tenantFromHeader() tenantId: string,
+  register(
+    @Body() createUserAuthDto: CreateUserAuth,
+    @tenantFromHeader() tenant_id: string,
   ) {
-    return this.authService.create(createAuthDto, +tenantId);
+    return this.authService.create(createUserAuthDto, +tenant_id);
   }
 
-  @Throttle({ default: { limit: 3, ttl: 6000 } })
+  // ─── Login ────────────────────────────────────────────────
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @UseGuards(ThrottlerGuard)
   @Post('login')
   login(
     @Body() loginUserAuthDto: loginUserAuth,
     @tenantFromHeader() tenant_id: string,
+    @Req() req: Request,
   ) {
-    return this.authService.login(loginUserAuthDto, +tenant_id);
+    const device_info = req.headers['user-agent'] ?? undefined; // ✅ null → undefined
+    const ip_address = req.ip ?? undefined; // ✅ null → undefined
+    return this.authService.login(
+      loginUserAuthDto,
+      +tenant_id,
+      device_info,
+      ip_address,
+    );
+  }
+
+  // ─── Refresh Token ────────────────────────────────────────
+  @UseGuards(RefreshTokenGuard)
+  @Post('refresh')
+  refreshToken(
+    @CurrentUser('sub') user_id: number,
+    @CurrentUser('role') role: Role,
+    @CurrentUser('refreshToken') refreshToken: string,
+  ) {
+    return this.authService.refreshToken(user_id, role, refreshToken);
+  }
+
+  // ─── Logout from current device ───────────────────────────
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  logout(@Body('session_id') session_id: number) {
+    return this.authService.logout(session_id);
+  }
+
+  // ─── Logout from ALL devices ──────────────────────────────
+  @UseGuards(JwtAuthGuard)
+  @Post('logout-all')
+  logoutAll(@CurrentUser('sub') user_id: number) {
+    return this.authService.logoutAll(user_id);
+  }
+
+  // ─── Get all active sessions ──────────────────────────────
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  getSessions(@CurrentUser('sub') user_id: number) {
+    return this.sessionService.findUserSessions(user_id);
+  }
+
+  // ─── Change Password ──────────────────────────────────────
+  @UseGuards(JwtAuthGuard)
+  @Patch('change-password')
+  changePassword(
+    @CurrentUser('sub') user_id: number,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.usersService.changePassword(
+      user_id,
+      changePasswordDto.old_password,
+      changePasswordDto.new_password,
+    );
   }
 }

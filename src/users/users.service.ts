@@ -1,81 +1,126 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { User } from './entities/user.entity';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from 'src/common/enums/role.enum';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
+
+  // ─── Create ───────────────────────────────────────────────
   async create(createUserDto: CreateUserDto) {
     const isExist = await this.userRepository.findOne({
       where: { email: createUserDto.email, tenant_id: createUserDto.tenant_id },
     });
-    if (isExist) {
-      throw new Error('email already exists.');
-    }
+    if (isExist) throw new ConflictException('Email already exists.');
 
-    const password = createUserDto.password;
-    const hashed_password = await bcrypt.hash(password, 10);
-
-    const newUser = await this.userRepository.save({
+    const hashed_password = await bcrypt.hash(createUserDto.password, 10);
+    return this.userRepository.save({
       username: createUserDto.username,
       email: createUserDto.email,
-      hashed_password: hashed_password,
+      hashed_password,
       tenant_id: createUserDto.tenant_id,
     });
-    return newUser;
   }
 
-  findAll() {
-    return this.userRepository.find();
+  // ─── Find All (scoped to tenant) ──────────────────────────
+  findAll(tenant_id: number) {
+    return this.userRepository.find({
+      where: { tenant_id, status: 1 },
+      select: [
+        'user_id',
+        'username',
+        'email',
+        'user_role',
+        'status',
+        'created_at',
+      ],
+    });
   }
 
+  // ─── Find by Email ────────────────────────────────────────
   async findByEmail(email: string, tenant_id: number) {
-    const existingUser = await this.userRepository.findOne({
-      where: { email: email, tenant_id: tenant_id },
+    return this.userRepository.findOne({
+      where: { email, tenant_id },
     });
-    return existingUser;
   }
+
+  // ─── Find by ID ───────────────────────────────────────────
   async findById(user_id: number) {
-    const existingUser = await this.userRepository.findOne({
-      where: { user_id: user_id },
+    const user = await this.userRepository.findOne({
+      where: { user_id },
+      select: [
+        'user_id',
+        'username',
+        'email',
+        'user_role',
+        'tenant_id',
+        'status',
+        'created_at',
+      ],
     });
-    return existingUser;
+    if (!user) throw new NotFoundException(`User #${user_id} not found`);
+    return user;
   }
 
-  async updateRefreshToken(userId: number, refreshToken: string) {
-    const hashed = await bcrypt.hash(refreshToken, 10);
+  // ─── Update Profile ───────────────────────────────────────
+  async updateProfile(user_id: number, updateUserDto: UpdateUserDto) {
+    const user = await this.userRepository.findOne({ where: { user_id } });
+    if (!user) throw new NotFoundException(`User #${user_id} not found`);
 
-    await this.userRepository.update(userId, {
-      hashed_refresh_token: hashed,
-    });
+    Object.assign(user, updateUserDto);
+    return this.userRepository.save(user);
   }
 
+  // ─── Change Password ──────────────────────────────────────
+  async changePassword(
+    user_id: number,
+    oldPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.userRepository.findOne({ where: { user_id } });
+    if (!user) throw new NotFoundException(`User #${user_id} not found`);
+
+    const isMatch = await bcrypt.compare(oldPassword, user.hashed_password);
+    if (!isMatch) throw new ConflictException('Old password is incorrect');
+
+    user.hashed_password = await bcrypt.hash(newPassword, 10);
+    await this.userRepository.save(user);
+    return { message: 'Password changed successfully' };
+  }
+
+  // ─── Update Role ──────────────────────────────────────────
   async updateRole(id: number, role: Role, currentUserRole: Role) {
     if (currentUserRole === Role.ADMIN && role === Role.SUPER_ADMIN) {
-      throw new Error('Admin cannot assign Super Admin role');
+      throw new ConflictException('Admin cannot assign Super Admin role');
     }
     if (currentUserRole === Role.ADMIN && role === Role.ADMIN) {
-      throw new Error('Admin cannot assign Admin role');
-    }
-    if (currentUserRole === Role.SUPER_ADMIN && role === Role.SUPER_ADMIN) {
-      throw new Error('Super Admin cannot assign Super Admin role');
+      throw new ConflictException('Admin cannot assign Admin role');
     }
 
-    const result = await this.userRepository.update(id, {
-      user_role: role,
-    });
-    if (result.affected === 0) {
-      // 👈 0 means no row was found/updated
-      throw new NotFoundException(`User with id ${id} not found`);
-    }
+    const result = await this.userRepository.update(id, { user_role: role });
+    if (result.affected === 0)
+      throw new NotFoundException(`User #${id} not found`);
+
     return this.userRepository.findOne({ where: { user_id: id } });
+  }
+
+  // ─── Deactivate (soft delete) ─────────────────────────────
+  async deactivate(user_id: number) {
+    const result = await this.userRepository.update(user_id, { status: 0 });
+    if (result.affected === 0)
+      throw new NotFoundException(`User #${user_id} not found`);
+    return { message: `User #${user_id} deactivated successfully` };
   }
 }

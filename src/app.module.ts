@@ -7,8 +7,6 @@ import { OrdersModule } from './orders/orders.module';
 import { ProductsModule } from './products/products.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { CategoriesModule } from './categories/categories.module';
-
-import { SalesModule } from './sales/sales.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
@@ -21,14 +19,28 @@ import { OrderConfirmationEmail } from './orders/entities/order-confirmation-ema
 import { Category } from './categories/entities/category.entity';
 import { InventoryLog } from './inventory/entities/inventory-log.entity';
 import { OrderItem } from './orders/entities/order-items.entity';
-import { DailySalesSummary } from './sales/entities/daily-sales-summary.entity';
-import jwtConfig from './config/jwt.config';
-import * as Joi from 'joi';
+import { DailySalesSummary } from './orders/entities/daily-sales-summary.entity';
 import { SeederModule } from './database/seeders/seeder.module';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { UserSession } from './auth/entities/user-session.entity';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
+import { BullModule } from '@nestjs/bull';
+import { CacheModule } from '@nestjs/cache-manager';
+
 @Module({
   imports: [
+    ScheduleModule.forRoot(), // 👈 cron jobs
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST ?? 'localhost',
+        port: parseInt(process.env.REDIS_PORT ?? '6379'),
+      },
+    }),
+    CacheModule.register({
+      ttl: 60, // default 60 seconds
+      max: 100, // max 100 items in cache
+      isGlobal: true,
+    }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
     SeederModule,
     UsersModule,
@@ -39,13 +51,12 @@ import { APP_GUARD } from '@nestjs/core';
     }),
 
     AuthModule,
-
     OrdersModule,
     ProductsModule,
     TenantsModule,
     CategoriesModule,
     InventoryModule,
-    SalesModule,
+
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: 'localhost',
@@ -63,6 +74,7 @@ import { APP_GUARD } from '@nestjs/core';
         Category,
         InventoryLog,
         OrderItem,
+        UserSession,
         DailySalesSummary,
       ],
       synchronize: false,

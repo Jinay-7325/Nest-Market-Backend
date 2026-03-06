@@ -1,26 +1,46 @@
 import { Injectable } from '@nestjs/common';
-import { CreateInventoryDto } from './dto/create-inventory.dto';
-import { UpdateInventoryDto } from './dto/update-inventory.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  InventoryLog,
+  InventoryChangeType,
+} from './entities/inventory-log.entity';
+
+interface LogInventoryParams {
+  tenant_id: number;
+  product_id: number;
+  change_type: InventoryChangeType;
+  quantity_change: number;
+  previous_quantity: number;
+  new_quantity: number;
+  performed_by: number;
+  reference_id?: number | null;
+  reference_type?: string | null;
+}
 
 @Injectable()
 export class InventoryService {
-  create(createInventoryDto: CreateInventoryDto) {
-    return 'This action adds a new inventory';
+  constructor(
+    @InjectRepository(InventoryLog)
+    private readonly inventoryLogRepository: Repository<InventoryLog>,
+  ) {}
+
+  async log(params: LogInventoryParams) {
+    const log = this.inventoryLogRepository.create(params);
+    return this.inventoryLogRepository.save(log);
   }
 
-  findAll() {
-    return `This action returns all inventory`;
+  async findAll(tenant_id: number) {
+    return this.inventoryLogRepository.find({
+      where: { tenant_id },
+      order: { created_at: 'DESC' },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} inventory`;
-  }
-
-  update(id: number, updateInventoryDto: UpdateInventoryDto) {
-    return `This action updates a #${id} inventory`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} inventory`;
+  async findByProduct(product_id: number) {
+    return this.inventoryLogRepository.find({
+      where: { product_id },
+      order: { created_at: 'DESC' },
+    });
   }
 }

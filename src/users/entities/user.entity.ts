@@ -1,8 +1,9 @@
+import { UserSession } from 'src/auth/entities/user-session.entity';
 import { Role } from 'src/common/enums/role.enum';
 import { InventoryLog } from 'src/inventory/entities/inventory-log.entity';
 import { Order } from 'src/orders/entities/order.entity';
 import { Product } from 'src/products/entities/product.entity';
-import { DailySalesSummary } from 'src/sales/entities/daily-sales-summary.entity';
+import { DailySalesSummary } from 'src/orders/entities/daily-sales-summary.entity';
 import { Tenant } from 'src/tenants/entities/tenant.entity';
 import {
   Column,
@@ -34,9 +35,6 @@ export class User {
   @Column({ type: 'enum', enum: Role, default: Role.CUSTOMER })
   user_role: Role;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
-  hashed_refresh_token: string | null;
-
   @Column({ type: 'int', nullable: true }) // ✅ add nullable: true to match your SQL
   tenant_id: number | null;
 
@@ -66,5 +64,6 @@ export class User {
   @OneToMany(() => InventoryLog, (log) => log.performedBy)
   inventoryLogs: InventoryLog[];
 
-  // ❌ Remove this — uniqueEmailPerTenant is not a real column
+  @OneToMany(() => UserSession, (session) => session.user)
+  sessions: UserSession[];
 }
