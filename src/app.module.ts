@@ -24,22 +24,18 @@ import { OrderItem } from './orders/entities/order-items.entity';
 import { DailySalesSummary } from './sales/entities/daily-sales-summary.entity';
 import jwtConfig from './config/jwt.config';
 import * as Joi from 'joi';
+import { SeederModule } from './database/seeders/seeder.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
+    SeederModule,
     UsersModule,
     TypeOrmModule.forFeature([User]),
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [jwtConfig],
-      validationSchema: Joi.object({
-        JWT_SECRET: Joi.string().required(),
-        JWT_REFRESH_SECRET: Joi.string().required(),
-        ACCESS_TOKEN_EXPIRES_IN: Joi.string().required(),
-        REFRESH_TOKEN_EXPIRES_IN: Joi.string().required(),
-        ADMIN_USERNAME: Joi.string().required(),
-        ADMIN_EMAIL: Joi.string().email().required(),
-        ADMIN_PASSWORD: Joi.string().min(6).required(),
-      }),
+      envFilePath: '.env',
     }),
 
     AuthModule,

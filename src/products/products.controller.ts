@@ -11,11 +11,12 @@ import {
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { Tenant } from 'src/common/decorators/tenant.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { tenantFromHeader } from 'src/common/decorators/tenant-from-header.decorator';
 
 @Controller('products')
 export class ProductsController {
@@ -26,13 +27,13 @@ export class ProductsController {
   @Post()
   create(
     @Body() createProductDto: CreateProductDto,
-    @Tenant() tenant_id: string,
+    @CurrentUser('tenant_id') tenant_id: number,
   ) {
     return this.productsService.create(createProductDto, +tenant_id);
   }
 
   @Get()
-  findAll(@Tenant() tenant_id: string) {
+  findAll(@tenantFromHeader() tenant_id: string) {
     return this.productsService.findAll(+tenant_id);
   }
 

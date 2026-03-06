@@ -7,43 +7,35 @@ import {
   Param,
   Delete,
   Header,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserAuth } from './dto/create-user-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
-import { Tenant } from 'src/common/decorators/tenant.decorator';
 import { loginUserAuth } from './dto/login-user.dto';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { tenantFromHeader } from 'src/common/decorators/tenant-from-header.decorator';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  create(@Body() createAuthDto: CreateUserAuth, @Tenant() tenantId: string) {
+  create(
+    @Body() createAuthDto: CreateUserAuth,
+    @tenantFromHeader() tenantId: string,
+  ) {
     return this.authService.create(createAuthDto, +tenantId);
   }
 
+  @Throttle({ default: { limit: 3, ttl: 6000 } })
+  @UseGuards(ThrottlerGuard)
   @Post('login')
-  login(@Body() loginUserAuthDto: loginUserAuth) {
-    return this.authService.login(loginUserAuthDto);
-  }
-
-  findAll() {
-    return this.authService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.authService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAuthDto: UpdateAuthDto) {
-    return this.authService.update(+id, updateAuthDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.authService.remove(+id);
+  login(
+    @Body() loginUserAuthDto: loginUserAuth,
+    @tenantFromHeader() tenant_id: string,
+  ) {
+    return this.authService.login(loginUserAuthDto, +tenant_id);
   }
 }

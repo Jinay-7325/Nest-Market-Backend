@@ -15,7 +15,7 @@ export class UsersService {
   ) {}
   async create(createUserDto: CreateUserDto) {
     const isExist = await this.userRepository.findOne({
-      where: { email: createUserDto.email },
+      where: { email: createUserDto.email, tenant_id: createUserDto.tenant_id },
     });
     if (isExist) {
       throw new Error('email already exists.');
@@ -24,13 +24,12 @@ export class UsersService {
     const password = createUserDto.password;
     const hashed_password = await bcrypt.hash(password, 10);
 
-    const newUser = this.userRepository.save({
+    const newUser = await this.userRepository.save({
       username: createUserDto.username,
       email: createUserDto.email,
       hashed_password: hashed_password,
       tenant_id: createUserDto.tenant_id,
     });
-
     return newUser;
   }
 
@@ -38,9 +37,9 @@ export class UsersService {
     return this.userRepository.find();
   }
 
-  async findByEmail(email: string) {
+  async findByEmail(email: string, tenant_id: number) {
     const existingUser = await this.userRepository.findOne({
-      where: { email: email },
+      where: { email: email, tenant_id: tenant_id },
     });
     return existingUser;
   }
@@ -59,7 +58,17 @@ export class UsersService {
     });
   }
 
-  async updateRole(id: number, role: Role) {
+  async updateRole(id: number, role: Role, currentUserRole: Role) {
+    if (currentUserRole === Role.ADMIN && role === Role.SUPER_ADMIN) {
+      throw new Error('Admin cannot assign Super Admin role');
+    }
+    if (currentUserRole === Role.ADMIN && role === Role.ADMIN) {
+      throw new Error('Admin cannot assign Admin role');
+    }
+    if (currentUserRole === Role.SUPER_ADMIN && role === Role.SUPER_ADMIN) {
+      throw new Error('Super Admin cannot assign Super Admin role');
+    }
+
     const result = await this.userRepository.update(id, {
       user_role: role,
     });
@@ -68,13 +77,5 @@ export class UsersService {
       throw new NotFoundException(`User with id ${id} not found`);
     }
     return this.userRepository.findOne({ where: { user_id: id } });
-  }
-
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} user`;
   }
 }

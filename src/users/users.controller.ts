@@ -12,7 +12,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { CurrentUserId } from 'src/common/decorators/current-user-id.decorator';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
 import { RolesGuard } from 'src/common/guards/roles.guard';
@@ -36,7 +36,7 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  findOne(@CurrentUserId() user_id: number) {
+  findOne(@CurrentUser('sub') user_id: number) {
     return this.usersService.findById(+user_id);
   }
 
@@ -44,16 +44,14 @@ export class UsersController {
   @Roles(Role.ADMIN)
   @Patch(':id/role')
   updateRole(
+    @CurrentUser('role') currentUserRole: Role,
     @Param('id') id: number,
     @Body() updateUserRoleDto: UpdateUserRoleDto,
   ) {
-    return this.usersService.updateRole(id, updateUserRoleDto.role);
-  }
-
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+    return this.usersService.updateRole(
+      id,
+      updateUserRoleDto.role,
+      currentUserRole,
+    );
   }
 }

@@ -1,22 +1,23 @@
+import { Role } from 'src/common/enums/role.enum';
+import { InventoryLog } from 'src/inventory/entities/inventory-log.entity';
+import { Order } from 'src/orders/entities/order.entity';
+import { Product } from 'src/products/entities/product.entity';
+import { DailySalesSummary } from 'src/sales/entities/daily-sales-summary.entity';
+import { Tenant } from 'src/tenants/entities/tenant.entity';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
+  Entity,
+  JoinColumn,
   ManyToOne,
   OneToMany,
-  JoinColumn,
+  PrimaryGeneratedColumn,
+  Unique,
+  UpdateDateColumn,
 } from 'typeorm';
 
-import { Product } from 'src/products/entities/product.entity';
-import { Tenant } from 'src/tenants/entities/tenant.entity';
-import { Order } from 'src/orders/entities/order.entity';
-import { DailySalesSummary } from 'src/sales/entities/daily-sales-summary.entity';
-import { InventoryLog } from 'src/inventory/entities/inventory-log.entity';
-import { Role } from 'src/common/enums/role.enum';
-
 @Entity('users')
+@Unique('uniqueEmailPerTenant', ['email', 'tenant_id']) // ✅ Move to class level
 export class User {
   @PrimaryGeneratedColumn()
   user_id: number;
@@ -24,11 +25,10 @@ export class User {
   @Column({ type: 'varchar', length: 50 })
   username: string;
 
-  @Column({ type: 'varchar', length: 100, unique: true })
+  @Column({ type: 'varchar', length: 100 })
   email: string;
 
   @Column({ type: 'varchar', length: 255 })
-  // select: false → never returned in queries unless explicitly requested
   hashed_password: string;
 
   @Column({ type: 'enum', enum: Role, default: Role.CUSTOMER })
@@ -37,7 +37,7 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   hashed_refresh_token: string | null;
 
-  @Column({ type: 'int' })
+  @Column({ type: 'int', nullable: true }) // ✅ add nullable: true to match your SQL
   tenant_id: number | null;
 
   @Column({ type: 'tinyint', default: 1 })
@@ -65,4 +65,6 @@ export class User {
 
   @OneToMany(() => InventoryLog, (log) => log.performedBy)
   inventoryLogs: InventoryLog[];
+
+  // ❌ Remove this — uniqueEmailPerTenant is not a real column
 }
