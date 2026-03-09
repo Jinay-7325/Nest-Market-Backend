@@ -21,7 +21,7 @@ import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard) // 👈 apply both guards to all routes
 @Roles(Role.SUPER_ADMIN) // 👈 only super admin can access all routes
-@Controller('v1/tenants')
+@Controller('tenants')
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
