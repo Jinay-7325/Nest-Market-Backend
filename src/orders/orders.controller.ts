@@ -16,10 +16,21 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Role } from 'src/common/enums/role.enum';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiSecurity,
+  ApiOperation,
+} from '@nestjs/swagger';
 
+@ApiTags('Orders')
+@ApiBearerAuth('access-token')
+@ApiSecurity('x-tenant-id') // 👈 was missing
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  @ApiOperation({ summary: 'Place an order' })
   @UseGuards(JwtAuthGuard)
   @Post()
   create(
@@ -30,6 +41,7 @@ export class OrdersController {
     return this.ordersService.create(createOrderDto, +tenant_id, +user_id);
   }
 
+  @ApiOperation({ summary: 'Get all orders for tenant (Admin)' })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get()
@@ -37,6 +49,7 @@ export class OrdersController {
     return this.ordersService.findAll(tenant_id);
   }
 
+  @ApiOperation({ summary: 'Get orders by vendor (Vendor)' })
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.VENDOR)
   @Get('/vendor')

@@ -15,13 +15,17 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums/role.enum';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 
+@ApiTags('Users')
+@ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
 @Controller('v1/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   // ─── Get all users (Admin + Super Admin) ──────────────────
+  @ApiOperation({ summary: 'Get all users in tenant (Admin)' })
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get()
@@ -30,12 +34,14 @@ export class UsersController {
   }
 
   // ─── Get own profile ──────────────────────────────────────
+  @ApiOperation({ summary: 'Get own profile' })
   @Get('profile')
   getProfile(@CurrentUser('sub') user_id: number) {
     return this.usersService.findById(user_id);
   }
 
   // ─── Get user by ID (Admin + Super Admin) ─────────────────
+  @ApiOperation({ summary: 'Get user by ID (Admin)' })
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get(':id')
@@ -44,6 +50,7 @@ export class UsersController {
   }
 
   // ─── Update own profile ───────────────────────────────────
+  @ApiOperation({ summary: 'Update own profile' })
   @Patch('profile')
   updateProfile(
     @CurrentUser('sub') user_id: number,
@@ -53,6 +60,8 @@ export class UsersController {
   }
 
   // ─── Update user by ID (Admin + Super Admin) ──────────────
+
+  @ApiOperation({ summary: 'Update user by ID (Admin)' })
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id')
@@ -61,6 +70,7 @@ export class UsersController {
   }
 
   // ─── Update user role (Admin + Super Admin) ───────────────
+  @ApiOperation({ summary: 'Update user role (Admin)' })
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id/role')
@@ -77,6 +87,7 @@ export class UsersController {
   }
 
   // ─── Deactivate user (Admin + Super Admin) ────────────────
+  @ApiOperation({ summary: 'Deactivate user (Admin)' })
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Delete(':id')

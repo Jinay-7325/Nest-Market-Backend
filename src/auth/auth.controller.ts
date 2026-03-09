@@ -20,7 +20,12 @@ import { RefreshTokenGuard } from 'src/common/guards/refresh-token.guard';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UsersService } from 'src/users/users.service';
-import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
 
 @ApiTags('Auth')
 @ApiSecurity('x-tenant-id')
@@ -43,6 +48,7 @@ export class AuthController {
   }
 
   // ─── Login ────────────────────────────────────────────────
+  @ApiOperation({ summary: 'Login (max 3 attempts/min)' })
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @UseGuards(ThrottlerGuard)
   @Post('login')
@@ -62,6 +68,9 @@ export class AuthController {
   }
 
   // ─── Refresh Token ────────────────────────────────────────
+
+  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiBearerAuth('access-token')
   @UseGuards(RefreshTokenGuard)
   @Post('refresh')
   refreshToken(
@@ -73,6 +82,8 @@ export class AuthController {
   }
 
   // ─── Logout from current device ───────────────────────────
+  @ApiOperation({ summary: 'Logout from current device' })
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   logout(@Body('session_id') session_id: number) {
@@ -80,6 +91,8 @@ export class AuthController {
   }
 
   // ─── Logout from ALL devices ──────────────────────────────
+  @ApiOperation({ summary: 'Logout from all devices' })
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('logout-all')
   logoutAll(@CurrentUser('sub') user_id: number) {
@@ -87,6 +100,8 @@ export class AuthController {
   }
 
   // ─── Get all active sessions ──────────────────────────────
+  @ApiOperation({ summary: 'Get all active sessions' })
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
   getSessions(@CurrentUser('sub') user_id: number) {
@@ -94,6 +109,8 @@ export class AuthController {
   }
 
   // ─── Change Password ──────────────────────────────────────
+  @ApiOperation({ summary: 'Change password' })
+  @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Patch('change-password')
   changePassword(
