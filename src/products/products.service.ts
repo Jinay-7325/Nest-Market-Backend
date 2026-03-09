@@ -67,19 +67,13 @@ export class ProductsService {
   async findAll(tenant_id: number, filters: FilterProductDto) {
     const cacheKey = `products_${tenant_id}_${JSON.stringify(filters)}`;
 
-    // ✅ cache-manager v5 uses get/set directly
-    const cached = await this.cacheManager.get(cacheKey);
+    const cached = await this.cacheManager.get<Product[]>(cacheKey);
     if (cached) return cached;
 
     const where: any = { tenant_id, status: 1 };
 
-    if (filters.category_id) {
-      where.category_id = filters.category_id;
-    }
-
-    if (filters.search) {
-      where.product_name = ILike(`%${filters.search}%`); // ✅ from typeorm
-    }
+    if (filters.category_id) where.category_id = filters.category_id;
+    if (filters.search) where.product_name = ILike(`%${filters.search}%`);
 
     if (filters.minPrice !== undefined && filters.maxPrice !== undefined) {
       where.product_price = Between(filters.minPrice, filters.maxPrice);
@@ -94,8 +88,12 @@ export class ProductsService {
       relations: ['images', 'category'],
     });
 
-    await this.cacheManager.set(cacheKey, products, 60000); // ✅ ttl in ms
+    await this.cacheManager.set(cacheKey, products); // ✅ v7 — no ttl as 3rd param
     return products;
+  }
+
+  async invalidateCache(tenant_id: number) {
+    await this.cacheManager.del(`products_${tenant_id}_${JSON.stringify({})}`);
   }
 
   async findOne(id: number) {
@@ -195,17 +193,5 @@ export class ProductsService {
 
     await this.productImageRepository.remove(image);
     return { message: `Image #${image_id} removed successfully` };
-  }
-
-  // ─── Invalidate cache for a tenant ────────────────────────
-  async invalidateCache(tenant_id: number) {
-    // ✅ cache-manager v5 does not support wildcard keys
-    // Clear by known pattern using a stored key index
-    const indexKey = `products_keys_${tenant_id}`;
-    const keys = (await this.cacheManager.get<string[]>(indexKey)) ?? [];
-    for (const key of keys) {
-      await this.cacheManager.del(key);
-    }
-    await this.cacheManager.del(indexKey);
   }
 }

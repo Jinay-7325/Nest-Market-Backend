@@ -37,8 +37,8 @@ import { CacheModule } from '@nestjs/cache-manager';
       },
     }),
     CacheModule.register({
-      ttl: 60, // default 60 seconds
-      max: 100, // max 100 items in cache
+      ttl: 60, // ✅ v7 uses SECONDS not milliseconds
+      max: 100,
       isGlobal: true,
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }]),
